@@ -4,8 +4,12 @@
 name: Python package
 
 on:
-  - push
-  - pull_request
+  workflow_dispatch:
+    inputs:
+      test-filter:
+        description: pytest -k expression selecting the tests to run (empty = full suite)
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -21,6 +25,9 @@ jobs:
           - '3.11'
           - '3.12'
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    env:
+      PIP_INDEX_URL: https://:2024-04-11T03:34:41.447563Z@time-machines-pypi.sealsecurity.io/
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
@@ -45,14 +52,19 @@ jobs:
           - '3.12'
           - 'pypy-3.9'
         include:
+          - python-version: '3.7'
+            os: ubuntu-22.04
           - python-version: 3.5
-            os: ubuntu-20.04
+            container: python:3.5-buster
           - python-version: 3.6
-            os: ubuntu-20.04
+            container: python:3.6-buster
     runs-on: ${{ matrix.os || 'ubuntu-latest' }}
+    container: ${{ matrix.container }}
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
+      if: ${{ !matrix.container }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
@@ -70,4 +82,4 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pytest
+        pytest${{ inputs.test-filter != '' && format(' -k "{0}"', inputs.test-filter) || '' }}
